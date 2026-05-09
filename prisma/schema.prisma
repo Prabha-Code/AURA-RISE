@@ -1,0 +1,221 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  name               String?
+  email              String?   @unique
+  emailVerified      DateTime?
+  image              String?
+  password           String?
+  phoneNumber        String?
+  role               Role      @default(DONOR)
+  bio                String?
+  location           String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Relations
+  accounts           Account[]
+  sessions           Session[]
+  donations          Donation[]
+  mentorProfile      MentorProfile?
+  volunteerProfile   VolunteerProfile?
+  studentProfile     StudentProfile?
+
+  @@map("users")
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Program {
+  id                 String    @id @default(cuid())
+  title              String
+  description        String
+  shortDescription   String
+  category           String
+  image              String?
+  content            String?
+  studentsImpacted   Int       @default(0)
+  mentorAvailability Int       @default(0)
+  fundingGoal        Float     @default(0)
+  fundingProgress    Float     @default(0)
+  completionPercentage Int     @default(0)
+  status             String    @default("active")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Relations
+  donations          Donation[]
+  mentors            MentorProfile[]
+  students           StudentProfile[]
+
+  @@map("programs")
+}
+
+model Donation {
+  id                 String    @id @default(cuid())
+  userId             String
+  programId          String?
+  amount             Float
+  currency           String    @default("INR")
+  status             String    @default("pending") // pending, completed, failed
+  paymentMethod      String    // razorpay, stripe, upi, bank
+  razorpayOrderId    String?
+  razorpayPaymentId  String?
+  stripePaymentId    String?
+  isRecurring        Boolean   @default(false)
+  recurringFrequency String?   // monthly, yearly
+  receiptUrl         String?
+  certificateUrl     String?
+  transactionId      String?
+  message            String?
+  isAnonymous        Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([programId])
+  @@map("donations")
+}
+
+model MentorProfile {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  specialization     String
+  experience         Int
+  mentorshipHours    Int       @default(0)
+  studentsGuided     Int       @default(0)
+  rating             Float     @default(0)
+  bio                String?
+  availability       String    @default("available") // available, busy
+  programIds         String[]  @default([])
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  programs Program[]
+
+  @@map("mentor_profiles")
+}
+
+model StudentProfile {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  schoolName         String?
+  grade              String?
+  programIds         String[]  @default([])
+  certifications     String[]  @default([])
+  mentorAssigned     String?
+  progress           Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  programs Program[]
+
+  @@map("student_profiles")
+}
+
+model VolunteerProfile {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  skills             String[]  @default([])
+  hoursContributed   Int       @default(0)
+  tasksCompleted     Int       @default(0)
+  certifications     String[]  @default([])
+  status             String    @default("active")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("volunteer_profiles")
+}
+
+model ImpactMetric {
+  id                 String    @id @default(cuid())
+  metricType         String    // students_trained, villages_reached, etc
+  value              Int
+  month              String
+  year               Int
+  createdAt          DateTime  @default(now())
+
+  @@map("impact_metrics")
+}
+
+model Testimonial {
+  id                 String    @id @default(cuid())
+  name               String
+  role               String
+  content            String
+  image              String?
+  rating             Int       @default(5)
+  createdAt          DateTime  @default(now())
+
+  @@map("testimonials")
+}
+
+model Newsletter {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  subscribedAt       DateTime  @default(now())
+
+  @@map("newsletters")
+}
+
+enum Role {
+  DONOR
+  MENTOR
+  VOLUNTEER
+  ADMIN
+  STUDENT
+}
